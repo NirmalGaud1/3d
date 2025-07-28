@@ -1,15 +1,12 @@
 import streamlit as st
 import google.generativeai as genai
-import os # For accessing environment variables for API key
-import io # Required for gTTS audio
-from gtts import gTTS # Google Text-to-Speech library
-import time # Import the time module for delays
+import os
+import io
+from gtts import gTTS
+import time
 
 # --- Configuration ---
 try:
-    # IMPORTANT: For production, use Streamlit Secrets (st.secrets) or environment variables
-    # instead of hardcoding your API key directly in the script for security.
-    # Example for st.secrets: genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
     genai.configure(api_key="AIzaSyBfxXXypKxT0-SOzncW5m153D75r-kLRLA")
 except Exception as e:
     st.error(f"Failed to configure Google Generative AI. Please ensure your API key is set correctly. Error: {e}")
@@ -106,41 +103,32 @@ def get_ai_response(user_input):
 def speak_text_and_animate(text):
     """
     Generates audio for Aria speaking using gTTS and updates her visual state.
+    This function no longer calls st.experimental_rerun().
     """
     st.session_state.aria_says = text
     st.session_state.aria_animation_state = 'speaking'
-    st.experimental_rerun() # Rerun to show speaking animation immediately
+    # No st.experimental_rerun() here
 
     try:
-        tts = gTTS(text=text, lang='en') # Default English voice is generally female-sounding
+        tts = gTTS(text=text, lang='en')
         fp = io.BytesIO()
         tts.write_to_fp(fp)
-        fp.seek(0) # Rewind the buffer to the beginning
+        fp.seek(0)
 
-        # Display and play audio
-        st.audio(fp, format='audio/mp3', start_time=0, key="aria_audio_player")
-
-        # After audio plays (requires user interaction to re-trigger, or a custom component)
-        # For a more dynamic flow without full custom component, you'd need JavaScript on frontend.
-        # Here, we'll revert to idle after the Streamlit rerun cycle completes.
-        # A more advanced approach would be to wait for the audio to finish playing.
+        # Display and play audio. A unique key is crucial for st.audio.
+        st.audio(fp, format='audio/mp3', start_time=0, key=f"aria_audio_player_{int(time.time())}")
 
     except Exception as e:
         st.error(f"Error generating Aria's voice: {e}")
         st.session_state.aria_says = "Sorry, I couldn't generate voice output."
     finally:
-        # Revert to idle animation after speaking is initiated.
-        # The animation will revert on the next user interaction or natural rerun.
+        # Revert to idle animation state. This will be picked up on the next Streamlit rerun.
         st.session_state.aria_animation_state = 'idle'
-        # Removed st.experimental_rerun() here to prevent potential infinite loops or conflicts
 
 
 # --- Display Aria's Visual (Simulated 3D Animated Girl) ---
-aria_idle_image_url = "https://placehold.co/300x400/87CEEB/FFFFFF?text=Aria+Idle" # Placeholder for idle girl
-aria_speaking_image_url = "https://placehold.co/300x400/98FB98/000000?text=Aria+Speaking" # Placeholder for speaking girl
-
-# You can replace these with actual GIFs or images of a 3D animated girl
-# Example: "https://your-domain.com/aria_idle.gif" or "https://your-domain.com/aria_speaking.gif"
+aria_idle_image_url = "https://placehold.co/300x400/87CEEB/FFFFFF?text=Aria+Idle"
+aria_speaking_image_url = "https://placehold.co/300x400/98FB98/000000?text=Aria+Speaking"
 
 current_aria_image = aria_speaking_image_url if st.session_state.aria_animation_state == 'speaking' else aria_idle_image_url
 
@@ -152,32 +140,49 @@ st.markdown(f"""
 
 
 # --- Main Interaction Loop ---
-user_command = st.text_input("Type your command here:", key="user_input_text")
+user_command_input = st.text_input("Type your command here:", key="user_input_text_area") # Renamed key to avoid conflict
+
+# Initialize `spoken_text` and `aria_says` if not present
+if "spoken_text" not in st.session_state:
+    st.session_state.spoken_text = ""
+if "aria_says" not in st.session_state:
+    st.session_state.aria_says = ""
+
 
 if st.button("Send Command"):
-    if user_command:
-        st.session_state.spoken_text = user_command
-        st.session_state.aria_says = "Aria is thinking..."
-        st.session_state.aria_animation_state = 'idle' # Ensure idle while thinking
-        st.experimental_rerun() # Rerun to show "Aria is thinking..." immediately
+    if user_command_input:
+        # Set the spoken text from the input
+        st.session_state.spoken_text = user_command_input
+        # Clear the input field after sending
+        st.session_state.user_input_text_area = "" # Reset the text input widget
+
+        # Use st.spinner to display a loading message during the delay and AI call
+        with st.spinner("Aria is thinking..."):
+            # Introduce a 5-second delay
+            time.sleep(5)
+
+            # Get AI response
+            ai_response_text = get_ai_response(st.session_state.spoken_text)
+
+            # Speak the text and update animation state
+            # This call will set aria_says, update animation state to 'speaking', and play audio
+            speak_text_and_animate(ai_response_text)
+
+        # After the `with st.spinner` block, the app will naturally rerun to show
+        # the final AI response and animation state (which will revert to idle in speak_text_and_animate).
+        # A rerun is placed here to ensure the UI immediately reflects the changes after the spinner completes.
+        st.experimental_rerun()
+
 
 # Display current spoken text (user input)
-if "spoken_text" in st.session_state:
+if st.session_state.spoken_text: # Check if it's not empty
     st.markdown(f"<h3 class='header-text'>You Said:</h3>", unsafe_allow_html=True)
     st.text_area("Your Input", st.session_state.spoken_text, height=50, key="spoken_output_display", disabled=True)
 
-# Display Aria's response and trigger speaking
-if "aria_says" in st.session_state:
+# Display Aria's response
+if st.session_state.aria_says: # Check if it's not empty
     st.markdown(f"<h3 class='header-text'>Aria Says:</h3>", unsafe_allow_html=True)
     st.text_area("Aria's Response", st.session_state.aria_says, height=150, key="aria_output_display", disabled=True)
-
-    # If Aria just finished thinking, get the actual AI response and speak it
-    if st.session_state.aria_says == "Aria is thinking...":
-        # Introduce a 5-second delay before getting the AI response
-        time.sleep(5) # This will pause the execution for 5 seconds
-        ai_response_text = get_ai_response(st.session_state.spoken_text)
-        speak_text_and_animate(ai_response_text)
-        # Note: speak_text_and_animate handles st.experimental_rerun() internally
 
 
 # --- Limitations and Next Steps ---

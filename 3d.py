@@ -81,6 +81,8 @@ if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "aria_animation_state" not in st.session_state:
     st.session_state.aria_animation_state = 'idle' # 'idle' or 'speaking'
+if "current_user_input" not in st.session_state: # New session state variable for input text
+    st.session_state.current_user_input = ""
 
 # --- AI Model Initialization ---
 try:
@@ -140,7 +142,12 @@ st.markdown(f"""
 
 
 # --- Main Interaction Loop ---
-user_command_input = st.text_input("Type your command here:", key="user_input_text_area") # Renamed key to avoid conflict
+# Use the session state variable to control the text input's value
+user_command_input = st.text_input(
+    "Type your command here:",
+    key="user_input_text_area",
+    value=st.session_state.current_user_input
+)
 
 # Initialize `spoken_text` and `aria_says` if not present
 if "spoken_text" not in st.session_state:
@@ -151,10 +158,10 @@ if "aria_says" not in st.session_state:
 
 if st.button("Send Command"):
     if user_command_input:
-        # Set the spoken text from the input
+        # Store the current input before clearing the widget
         st.session_state.spoken_text = user_command_input
-        # Clear the input field after sending
-        st.session_state.user_input_text_area = "" # Reset the text input widget
+        # Clear the input field for the next interaction
+        st.session_state.current_user_input = "" # This is the fix!
 
         # Use st.spinner to display a loading message during the delay and AI call
         with st.spinner("Aria is thinking..."):

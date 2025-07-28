@@ -130,10 +130,9 @@ def speak_text_and_animate(text):
         st.session_state.aria_says = "Sorry, I couldn't generate voice output."
     finally:
         # Revert to idle animation after speaking is initiated.
-        # Note: In pure Streamlit, there's no direct 'audio finished' callback.
-        # The animation will revert on the next user interaction or rerun.
+        # The animation will revert on the next user interaction or natural rerun.
         st.session_state.aria_animation_state = 'idle'
-        st.experimental_rerun()
+        # Removed st.experimental_rerun() here to prevent potential infinite loops or conflicts
 
 
 # --- Display Aria's Visual (Simulated 3D Animated Girl) ---

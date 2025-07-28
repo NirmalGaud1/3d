@@ -117,8 +117,8 @@ def speak_text_and_animate(text):
         tts.write_to_fp(fp)
         fp.seek(0)
 
-        # Display and play audio. A unique key is crucial for st.audio.
-        st.audio(fp, format='audio/mp3', start_time=0, key=f"aria_audio_player_{int(time.time())}")
+        # Display and play audio. Removed the 'key' argument as it's not supported by st.audio()
+        st.audio(fp, format='audio/mp3', start_time=0)
 
     except Exception as e:
         st.error(f"Error generating Aria's voice: {e}")
@@ -161,7 +161,7 @@ if st.button("Send Command"):
         # Store the current input before clearing the widget
         st.session_state.spoken_text = user_command_input
         # Clear the input field for the next interaction
-        st.session_state.current_user_input = "" # This is the fix!
+        st.session_state.current_user_input = ""
 
         # Use st.spinner to display a loading message during the delay and AI call
         with st.spinner("Aria is thinking..."):
@@ -175,10 +175,9 @@ if st.button("Send Command"):
             # This call will set aria_says, update animation state to 'speaking', and play audio
             speak_text_and_animate(ai_response_text)
 
-        # After the `with st.spinner` block, the app will naturally rerun to show
-        # the final AI response and animation state (which will revert to idle in speak_text_and_animate).
-        # A rerun is placed here to ensure the UI immediately reflects the changes after the spinner completes.
-        st.experimental_rerun()
+        # Removed st.experimental_rerun() here.
+        # Streamlit will naturally rerun after the button callback completes,
+        # reflecting the updated session state values (like aria_says and current_aria_image).
 
 
 # Display current spoken text (user input)
